@@ -1,0 +1,149 @@
+services:
+  chat_assistant_app:
+    build:
+      context: .
+      dockerfile: ./compose/development/DockerfileApp
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=chat_assistant_db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=chat_assistant
+      - POSTGRES_PASSWORD=chat_assistant
+      - POSTGRES_DB=chat_assistant
+    depends_on:
+      - chat_assistant_db
+    volumes:
+      - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
+    networks:
+      - chat_assistant_network
+
+  chat_assistant_db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=chat_assistant
+      - POSTGRES_PASSWORD=chat_assistant
+      - POSTGRES_DB=chat_assistant
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chat_assistant -d chat_assistant"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chat_assistant_network
+
+  chat_assistant_redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chat_assistant_network
+
+  chat_assistant_celery_worker:
+    build:
+      context: .
+      dockerfile: ./compose/development/DockerfileCeleryWorker
+    command: celery -A app.tasks.celery_config.celery_app worker --loglevel=INFO --queues=$QUEUE_NAME -n chat-assistant-worker@%n
+    volumes:
+      - ./app:/app/app
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=chat_assistant_db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=chat_assistant
+      - POSTGRES_PASSWORD=chat_assistant
+      - POSTGRES_DB=chat_assistant
+      - RABBITMQ_HOST=chat_assistant_rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS}
+    depends_on:
+      - chat_assistant_rabbitmq
+      - chat_assistant_db
+    networks:
+      - chat_assistant_network
+
+  chat_assistant_rabbitmq:
+    image: rabbitmq:management-alpine
+    restart: always
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "5672:5672"  # AMQP port
+      - "15672:15672"  # Management UI port
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/mnesia
+    networks:
+      - chat_assistant_network
+
+  chat_assistant_celery_flower:
+    build:
+      context: .
+      dockerfile: ./compose/development/DockerfileCeleryFlower
+    command: celery flower --broker=${FLOWER_BROKER_URL}
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=chat_assistant_db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=chat_assistant
+      - POSTGRES_PASSWORD=chat_assistant
+      - POSTGRES_DB=chat_assistant
+      - RABBITMQ_HOST=chat_assistant_rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS}
+    depends_on:
+      - chat_assistant_celery_worker
+      - chat_assistant_db
+    networks:
+      - chat_assistant_network
+
+  chat_assistant_pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+      - PGADMIN_LISTEN_PORT=${PGADMIN_LISTEN_PORT}
+    ports:
+      - "${PGADMIN_LISTEN_PORT}:${PGADMIN_LISTEN_PORT}"
+    depends_on:
+      - chat_assistant_db
+    networks:
+      - chat_assistant_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  chat_assistant_network:
+    driver: bridge

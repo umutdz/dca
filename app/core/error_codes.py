@@ -36,3 +36,4 @@ class ErrorCode(IntEnum):
         )
 
     INVALID_CREDENTIALS = (1000, "Invalid credentials", 401, "Invalid credentials")
+    USER_ALREADY_EXISTS = (1001, "User already exists", 400, "User already exists")

@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Type
+from typing import Any, List, Optional, Type, TypeVar, Generic
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,18 +7,20 @@ from sqlalchemy.orm import selectinload
 from app.db.postgres.models.base import BaseModel
 from app.repositories.interfaces.base import IRepository
 
+T = TypeVar('T', bound=BaseModel)
 
-class PostgresRepository(IRepository[BaseModel]):
+
+class PostgresRepository(IRepository[T], Generic[T]):
     """
     PostgreSQL implementation of the repository pattern.
     All PostgreSQL repository classes should inherit from this class.
     """
 
-    def __init__(self, session: AsyncSession, model_class: Type[BaseModel]):
+    def __init__(self, session: AsyncSession, model_class: Type[T]):
         self.session = session
         self.model_class = model_class
 
-    async def create(self, obj_in: dict) -> BaseModel:
+    async def create(self, obj_in: dict) -> T:
         """Create a new record in the database."""
         try:
             db_obj = self.model_class(**obj_in)
@@ -30,7 +32,7 @@ class PostgresRepository(IRepository[BaseModel]):
             await self.session.rollback()
             raise e
 
-    async def get(self, id: Any) -> Optional[BaseModel]:
+    async def get(self, id: Any) -> Optional[T]:
         """Get a single record by id."""
         query = select(self.model_class).where(self.model_class.id == id)
         result = await self.session.execute(query)
@@ -42,7 +44,7 @@ class PostgresRepository(IRepository[BaseModel]):
         skip: int = 0,
         limit: int = 100,
         **filters
-    ) -> List[BaseModel]:
+    ) -> List[T]:
         """Get multiple records with optional filtering and pagination."""
         query = select(self.model_class)
 
@@ -54,7 +56,7 @@ class PostgresRepository(IRepository[BaseModel]):
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
-    async def update(self, id: Any, obj_in: dict) -> Optional[BaseModel]:
+    async def update(self, id: Any, obj_in: dict) -> Optional[T]:
         """Update a record."""
         try:
             query = (
@@ -90,7 +92,7 @@ class PostgresRepository(IRepository[BaseModel]):
         result = await self.session.execute(query)
         return result.scalar_one_or_none() is not None
 
-    async def filter_one(self, **filters) -> Optional[BaseModel]:
+    async def filter_one(self, **filters) -> Optional[T]:
         """Filter records with given filters."""
         query = select(self.model_class)
         for key, value in filters.items():

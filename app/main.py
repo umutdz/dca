@@ -1,19 +1,15 @@
 from contextlib import asynccontextmanager
 
-from elasticapm.contrib.starlette import ElasticAPM
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi_pagination import add_pagination
 
 from app.api.health import router as health_router
 from app.api.v1.router import api_router as api_router_v1
 from app.core.config import config
 from app.core.exceptions import ExceptionBase
-from app.core.tracing import app_apm
 from app.middleware.rate_limit import init_limiter, rate_limit_middleware
 from app.middleware.request_id import RequestIDMiddleware
-from app.tasks.tasks import cp_log_to_elk
 
 
 @asynccontextmanager
@@ -66,7 +62,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-                                                      
+
 
 @app.exception_handler(ExceptionBase)
 def http_exception_handler(request, exc: ExceptionBase):
@@ -80,22 +76,12 @@ def http_exception_handler(request, exc: ExceptionBase):
     )
 
 
-if config.APP_ENV != "LOCAL":
-    from app.core.logging import Logger
-
-    logger = Logger(apm_method=app_apm)
-
-    @app.middleware("http")
-    async def log_request(request: Request, call_next):
-        body = await request.body() if request.method == "POST" else "{}"
-        response = await call_next(request)
-        log_data = await logger.get_incoming_log_data(request, body, response)
-        if log_data:
-            cp_log_to_elk.delay(log_data)
-        return response
-
-    app.add_middleware(ElasticAPM, client=app_apm)
-
+@app.middleware("http")
+async def log_request(request: Request, call_next):
+    body = await request.body() if request.method == "POST" else "{}"
+    response = await call_next(request)
+    # TODO: log request and response
+    return response
 
 # Include API router
 app.include_router(api_router_v1, prefix=config.APP_STR)

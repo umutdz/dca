@@ -67,6 +67,7 @@ class PostgresRepository(IRepository[T], Generic[T]):
             )
             result = await self.session.execute(query)
             await self.session.flush()
+            await self.session.commit()
             return result.scalar_one_or_none()
         except Exception as e:
             await self.session.rollback()

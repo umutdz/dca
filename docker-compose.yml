@@ -139,6 +139,37 @@ services:
     networks:
       - chat_assistant_network
 
+  chat_assistant_mongodb:
+    image: mongo:7.0
+    restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGO_DB}
+    ports:
+      - "${MONGO_PORT}:${MONGO_PORT}"
+    volumes:
+      - ./data/mongodb:/data/db
+    networks:
+      - chat_assistant_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chat_assistant_mongo_express:
+    image: mongo-express:1.0.2-20
+    restart: always
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_USER}
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_PASSWORD}
+      - ME_CONFIG_MONGODB_URL=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@chat_assistant_mongodb:${MONGO_PORT}/
+    networks:
+      - chat_assistant_network
+
 volumes:
   postgres_data:
   redis_data:

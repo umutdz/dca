@@ -47,6 +47,13 @@ class Config(BaseSettings):
     # API Key
     API_KEY: str
 
+    # MongoDB
+    MONGO_HOST: str
+    MONGO_PORT: int
+    MONGO_USER: str
+    MONGO_PASSWORD: str
+    MONGO_DB: str
+
     # TODO: should be added to the config after the elasticsearch is implemented
     # # ELASTIC
     # ELASTIC_APM_SERVER_URL: str

@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Type, TypeVar, Generic
+from typing import Any, Generic, List, Optional, Type, TypeVar
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.db.postgres.models.base import BaseModel
 from app.repositories.interfaces.base import IRepository
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
 
 
 class PostgresRepository(IRepository[T], Generic[T]):
@@ -32,19 +32,13 @@ class PostgresRepository(IRepository[T], Generic[T]):
             await self.session.rollback()
             raise e
 
-    async def get(self, id: Any) -> Optional[T]:
+    async def get(self, id: int) -> Optional[T]:
         """Get a single record by id."""
         query = select(self.model_class).where(self.model_class.id == id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_multi(
-        self,
-        *,
-        skip: int = 0,
-        limit: int = 100,
-        **filters
-    ) -> List[T]:
+    async def get_multi(self, *, skip: int = 0, limit: int = 100, **filters) -> List[T]:
         """Get multiple records with optional filtering and pagination."""
         query = select(self.model_class)
 
@@ -59,12 +53,7 @@ class PostgresRepository(IRepository[T], Generic[T]):
     async def update(self, id: Any, obj_in: dict) -> Optional[T]:
         """Update a record."""
         try:
-            query = (
-                update(self.model_class)
-                .where(self.model_class.id == id)
-                .values(**obj_in)
-                .returning(self.model_class)
-            )
+            query = update(self.model_class).where(self.model_class.id == id).values(**obj_in).returning(self.model_class)
             result = await self.session.execute(query)
             await self.session.flush()
             await self.session.commit()

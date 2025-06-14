@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.mongodb.mongodb import MongoDB
 from app.db.postgres.session import check_db_connection, get_db
 
 router = APIRouter(prefix="/health", tags=["health"], include_in_schema=False)
@@ -54,3 +55,28 @@ def readiness():
         "status": "ready",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@router.get("/mongodb")
+async def mongodb_health():
+    """
+    MongoDB health check.
+    Verifies connection to MongoDB.
+    """
+    try:
+        client = await MongoDB.connect()
+        # Test the connection
+        await client.admin.command("ping")
+        return {
+            "status": "ok",
+            "mongodb": "connected",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"MongoDB health check failed: {str(e)}")
+        return {
+            "status": "error",
+            "mongodb": "disconnected",
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }

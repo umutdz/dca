@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dca-config
+  labels:
+    app: dca
+data:
+  # API Settings
+  APP_ENV: "DEVELOP"
+  APP_DEBUG: "true"
+  APP_STR: "/api/v1"
+  APP_NAME: "chat_assistant API"
+  APP_VERSION: "v1"
+
+  # POSTGRES
+  POSTGRES_HOST: "chat_assistant_db"
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: "chat_assistant"
+  POSTGRES_PASSWORD: "chat_assistant"
+  POSTGRES_DB: "chat_assistant"
+
+  # RabbitMQ
+  RABBITMQ_HOST: "chat_assistant_rabbitmq"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER}"
+  RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
+
+  # Session
+  SESSION_TTL_SECOND: "2592000"
+
+  # Origins
+  STAGING_ORIGIN: "[]"
+  PRODUCTION_ORIGIN: "[]"
+
+  # Queue
+  QUEUE_NAME: "chat_assistant"
+
+  # Rate Limiter
+  RATE_LIMIT_TIMES: "100"
+  RATE_LIMIT_SECONDS: "60"
+
+  # JWT
+  SECRET_KEY: "${SECRET_KEY}"
+  ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+
+  # Redis
+  REDIS_URL: "redis://chat_assistant_redis:6379/0"
+  REDIS_PREFIX: "chat_assistant"
+
+  # API Key
+  API_KEY: "${API_KEY}"
+
+  # MongoDB
+  MONGO_HOST: "chat_assistant_mongodb"
+  MONGO_PORT: "${MONGO_PORT}"
+  MONGO_USER: "${MONGO_USER}"
+  MONGO_PASSWORD: "${MONGO_PASSWORD}"
+  MONGO_DB: "${MONGO_DB}"
+
+  # Gemini
+  GEMINI_API_KEY: "${GEMINI_API_KEY}"
+  GEMINI_BASE_URL: "${GEMINI_BASE_URL}"
+  GEMINI_ENDPOINT: "${GEMINI_ENDPOINT}"
+
+  # Logging
+  LOG_LEVEL: "INFO"
+  LOG_FILE: "logs/app.log"
+
+  # PgAdmin
+  PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL}"
+  PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD}"
+  PGADMIN_LISTEN_PORT: "${PGADMIN_LISTEN_PORT}"

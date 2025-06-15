@@ -5,8 +5,8 @@ import requests
 
 from app.core.error_codes import ErrorCode
 from app.core.exceptions import ExceptionBase
+from app.middleware.logging import default_logger
 from app.schemas.base import BaseAPISerializer
-from app.services.api_logger import APILogger
 from app.services.base import BaseAPIService
 
 RequestType = TypeVar("RequestType", bound=BaseAPISerializer)
@@ -75,24 +75,36 @@ class APIService(BaseAPIService):
         """
 
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        headers = self.headers(extra_headers)
+        request_data = data.model_dump() if data else {}
+
+        # Log outgoing request
+        default_logger.info(
+            "Outgoing API request",
+            method=method,
+            url=url,
+            path=endpoint,
+            headers=headers,
+            query_params=params,
+            body=request_data,
+        )
 
         try:
             response = requests.request(
                 method=method,
                 url=url,
-                headers=self.headers(extra_headers),
+                headers=headers,
                 data=data.model_dump_json() if data else None,
                 params=params,
                 timeout=self._timeout,
             )
-            # Log the API call using the new APILogger
-            APILogger.log_outgoing_api_call(
+
+            # Log response
+            default_logger.info(
+                "API response received",
                 method=method,
                 url=url,
                 path=endpoint,
-                headers=self.headers(extra_headers),
-                query_params=params,
-                body=data.model_dump() if data else {},
                 status_code=response.status_code,
                 response=response.json(),
             )
@@ -101,8 +113,21 @@ class APIService(BaseAPIService):
             return response.json()
 
         except requests.exceptions.RequestException as e:
-            if response.json().get("error"):
-                raise ExceptionBase(ErrorCode.API_ERROR, description=response.json().get("error"))
+            error_response = response.json() if response.content else {}
+            error_message = error_response.get("error", str(e))
+
+            default_logger.error(
+                "API request failed",
+                method=method,
+                url=url,
+                path=endpoint,
+                status_code=response.status_code,
+                error=error_message,
+                response=error_response,
+            )
+
+            if error_response.get("error"):
+                raise ExceptionBase(ErrorCode.API_ERROR, description=error_message)
             raise ExceptionBase(ErrorCode.API_ERROR, description=str(e))
 
     @property

@@ -70,6 +70,10 @@ class Config(BaseSettings):
     GEMINI_BASE_URL: str
     GEMINI_ENDPOINT: str
 
+    # Logging
+    LOG_LEVEL: str = "INFO"
+    LOG_FILE: str = "logs/app.log"
+
     @property
     def ORIGIN(self):
         if self.APP_ENV == "PRODUCTION":

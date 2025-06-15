@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +9,7 @@ from app.api.health import router as health_router
 from app.api.v1.router import api_router as api_router_v1
 from app.core.config import config
 from app.core.exceptions import ExceptionBase
+from app.middleware.logging import default_logger
 from app.middleware.rate_limit import init_limiter, rate_limit_middleware
 from app.middleware.request_id import RequestIDMiddleware
 
@@ -19,16 +21,15 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events.
     """
     # Startup
-    print("Starting up...")
+    default_logger.info("Application starting up...")
     await init_limiter()  # Initialize rate limiter
 
     try:
         yield
     finally:
         # Shutdown
-        print("Shutting down...")
-
-        # close the necessary connections
+        default_logger.info("Application shutting down...")
+        # TODO: close the necessary connections
 
 
 app = FastAPI(
@@ -66,6 +67,15 @@ app.add_middleware(
 
 @app.exception_handler(ExceptionBase)
 def http_exception_handler(request, exc: ExceptionBase):
+    default_logger.error(
+        "API Error occurred",
+        error_code=exc.code,
+        error_message=exc.message,
+        error_description=exc.description,
+        status_code=exc.status_code,
+        path=request.url.path,
+        method=request.method,
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -78,10 +88,62 @@ def http_exception_handler(request, exc: ExceptionBase):
 
 @app.middleware("http")
 async def log_request(request: Request, call_next):
-    body = await request.body() if request.method == "POST" else "{}"
-    response = await call_next(request)
-    # TODO: log request and response
-    return response
+    request_id = request.headers.get("X-Request-ID", "unknown")
+    start_time = datetime.now(timezone.utc)
+
+    # Log incoming request
+    body = await request.body()
+
+    # Check if the request is multipart/form-data
+    content_type = request.headers.get("content-type", "")
+    is_multipart = "multipart/form-data" in content_type
+
+    # For multipart requests, don't try to decode the body
+    body_str = "{}"
+    if not is_multipart and body:
+        try:
+            body_str = body.decode()
+        except UnicodeDecodeError:
+            body_str = "<binary content>"
+
+    default_logger.info(
+        "Incoming request",
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+        query_params=str(request.query_params),
+        headers=dict(request.headers),
+        body=body_str,
+        content_type=content_type,
+    )
+
+    try:
+        response = await call_next(request)
+
+        # Log response
+        process_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+        default_logger.info(
+            "Request completed",
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            process_time=process_time,
+        )
+
+        return response
+    except Exception as e:
+        process_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+        default_logger.error(
+            "Request failed",
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+            error=str(e),
+            process_time=process_time,
+        )
+        raise
+
 
 # Include API router
 app.include_router(api_router_v1, prefix=config.APP_STR)

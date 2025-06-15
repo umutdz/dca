@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, File, Header, UploadFile
 
-from app.api.deps import depends_pdf_service, get_current_user
+from app.api.deps import (depends_chat_service, depends_pdf_service,
+                          get_current_user)
 from app.core.error_codes import ErrorCode
 from app.core.exceptions import ExceptionBase
-from app.schemas.pdf import (PDFListResponse, PDFMetadata, PDFParseResponse,
-                             PDFSelectResponse)
+from app.schemas.pdf import (PDFChatHistoryResponse, PDFChatRequest,
+                             PDFChatResponse, PDFListResponse, PDFMetadata,
+                             PDFParseResponse, PDFSelectResponse)
+from app.services.chat import ChatService
 from app.services.pdf import PDFService
 
 router = APIRouter(prefix="/pdf", tags=["pdf"])
@@ -90,10 +93,36 @@ async def select_pdf(
         raise ExceptionBase(ErrorCode.PDF_ACCESS_DENIED)
 
     try:
-        selected_pdf = await service.select_pdf(pdf_id)
+        selected_pdf = await service.select_pdf(pdf_id, user.id)
         if not selected_pdf:
             raise ExceptionBase(ErrorCode.PDF_SELECTION_FAILED)
 
         return PDFSelectResponse(message="PDF selected successfully", pdf=selected_pdf)
     except Exception:
         raise ExceptionBase(ErrorCode.PDF_SELECTION_FAILED)
+
+
+@router.post("/chat", response_model=PDFChatResponse)
+async def chat_pdf(
+    request: PDFChatRequest,
+    authorization: str = Header(..., description="Bearer token"),
+    pdf_service: PDFService = Depends(depends_pdf_service),
+    chat_service: ChatService = Depends(depends_chat_service),
+):
+    """
+    Chat with a previously selected PDF.
+    """
+    user = await get_current_user(authorization)
+    pdf = await pdf_service.get_selected_pdf(user.id)
+    return await chat_service.chat_pdf(request.question, pdf, user.id)
+
+
+@router.get("/chat-history", response_model=PDFChatHistoryResponse)
+async def chat_history(
+    authorization: str = Header(..., description="Bearer token"), chat_service: ChatService = Depends(depends_chat_service)
+):
+    """
+    Get chat history for the authenticated user.
+    """
+    user = await get_current_user(authorization)
+    return await chat_service.chat_history(user.id)

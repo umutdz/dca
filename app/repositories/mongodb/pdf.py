@@ -29,6 +29,7 @@ class PDFRepository:
     def __init__(self):
         self.mongodb = MongoDB()
         self.collection_name = "pdf_metadata"
+        self.selected_pdf_collection_name = "selected_pdfs"
         self.fs: Optional[AsyncIOMotorGridFSBucket] = None
         self.logger = logging.getLogger(__name__)
 
@@ -50,6 +51,15 @@ class PDFRepository:
             return db[self.collection_name]
         except Exception as e:
             self.logger.error(f"Failed to get collection: {str(e)}")
+            raise
+
+    async def _get_selected_pdf_collection(self):
+        """Get MongoDB collection for selected PDFs."""
+        try:
+            db = await self.mongodb.get_database()
+            return db[self.selected_pdf_collection_name]
+        except Exception as e:
+            self.logger.error(f"Failed to get selected PDF collection: {str(e)}")
             raise
 
     async def upload_pdf(self, user_id: int, filename: str, title: str, file_content: bytes) -> PDFMetadata:
@@ -163,3 +173,24 @@ class PDFRepository:
         except Exception as e:
             self.logger.error(f"Failed to delete file from GridFS: {str(e)}")
             return False
+
+    async def set_selected_pdf(self, user_id: int, pdf_id: str) -> bool:
+        """Set the selected PDF for a user."""
+        try:
+            collection = await self._get_selected_pdf_collection()
+            # Use upsert to either update existing or create new
+            await collection.update_one({"user_id": user_id}, {"$set": {"pdf_id": pdf_id, "updated_at": datetime.utcnow()}}, upsert=True)
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to set selected PDF: {str(e)}")
+            return False
+
+    async def get_selected_pdf(self, user_id: int) -> Optional[str]:
+        """Get the selected PDF ID for a user."""
+        try:
+            collection = await self._get_selected_pdf_collection()
+            doc = await collection.find_one({"user_id": user_id})
+            return doc["pdf_id"] if doc else None
+        except Exception as e:
+            self.logger.error(f"Failed to get selected PDF: {str(e)}")
+            return None

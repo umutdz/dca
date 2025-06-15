@@ -65,6 +65,11 @@ class Config(BaseSettings):
     # APP_APM_NAME: str
     # CELERY_APM_NAME: str
 
+    # Gemini API Key
+    GEMINI_API_KEY: str
+    GEMINI_BASE_URL: str
+    GEMINI_ENDPOINT: str
+
     @property
     def ORIGIN(self):
         if self.APP_ENV == "PRODUCTION":

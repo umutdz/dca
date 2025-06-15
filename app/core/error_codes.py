@@ -65,3 +65,6 @@ class ErrorCode(IntEnum):
     INTERNAL_SERVER_ERROR = (5000, "Internal server error", 500, "An unexpected error occurred")
     SERVICE_UNAVAILABLE = (5001, "Service unavailable", 503, "The service is temporarily unavailable")
     UNKNOWN_API_ERROR = (5002, "Unknown API error", 500, "An unknown error occurred")
+
+    # API Errors (6000-6999)
+    API_ERROR = (6000, "API error", 500, "An error occurred while accessing the API")

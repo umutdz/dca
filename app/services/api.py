@@ -5,9 +5,8 @@ import requests
 
 from app.core.error_codes import ErrorCode
 from app.core.exceptions import ExceptionBase
-from app.core.tracing import app_apm
-from app.services.api_logger import APILogger
 from app.schemas.base import BaseAPISerializer
+from app.services.api_logger import APILogger
 from app.services.base import BaseAPIService
 
 RequestType = TypeVar("RequestType", bound=BaseAPISerializer)
@@ -102,8 +101,6 @@ class APIService(BaseAPIService):
             return response.json()
 
         except requests.exceptions.RequestException as e:
-            if app_apm:
-                app_apm.capture_exception()
             if response.json().get("error"):
                 raise ExceptionBase(ErrorCode.API_ERROR, description=response.json().get("error"))
             raise ExceptionBase(ErrorCode.API_ERROR, description=str(e))

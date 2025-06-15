@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -46,3 +46,27 @@ class PDFSelectResponse(BaseModel):
 
     message: str = Field(..., description="Status message")
     pdf: PDFMetadata = Field(..., description="The selected PDF metadata")
+
+
+class PDFChatResponse(BaseModel):
+    """Response model for PDF chat."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    question: str = Field(..., description="The question")
+    answer: str = Field(..., description="The answer")
+    pdf_id: str = Field(..., description="The ID of the PDF")
+
+
+class PDFChatRequest(BaseModel):
+    """Request model for PDF chat."""
+
+    question: str = Field(..., description="The question")
+
+
+class PDFChatHistoryResponse(BaseModel):
+    """Response model for PDF chat history."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    history: List[Dict[str, Any]] = Field(..., description="List of chat history items")

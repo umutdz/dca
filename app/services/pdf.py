@@ -12,7 +12,6 @@ class PDFService:
     def __init__(self):
         self.pdf_repository = PDFRepository()
         self.logger = logging.getLogger(__name__)
-        self._selected_pdf: Optional[PDFMetadata] = None
 
     async def upload_pdf(self, title: str, filename: str, file: UploadFile, user_id: int) -> PDFMetadata:
         """Upload a PDF file to MongoDB GridFS and store its metadata."""
@@ -96,7 +95,7 @@ class PDFService:
             self.logger.error(f"Failed to parse PDF: {str(e)}")
             return False
 
-    async def select_pdf(self, pdf_id: str) -> Optional[PDFMetadata]:
+    async def select_pdf(self, pdf_id: str, user_id: int) -> Optional[PDFMetadata]:
         """Select a PDF for chat."""
         metadata = await self.pdf_repository.get_pdf_metadata(pdf_id)
         if not metadata:
@@ -110,9 +109,17 @@ class PDFService:
             # Get updated metadata
             metadata = await self.pdf_repository.get_pdf_metadata(pdf_id)
 
-        self._selected_pdf = metadata
+        # Store selected PDF in MongoDB
+        success = await self.pdf_repository.set_selected_pdf(user_id, pdf_id)
+        if not success:
+            self.logger.error(f"Failed to store selected PDF for user {user_id}")
+            return None
+
         return metadata
 
-    def get_selected_pdf(self) -> Optional[PDFMetadata]:
-        """Get currently selected PDF."""
-        return self._selected_pdf
+    async def get_selected_pdf(self, user_id: int) -> Optional[PDFMetadata]:
+        """Get currently selected PDF for a specific user."""
+        pdf_id = await self.pdf_repository.get_selected_pdf(user_id)
+        if not pdf_id:
+            return None
+        return await self.pdf_repository.get_pdf_metadata(pdf_id)
